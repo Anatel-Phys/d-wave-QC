@@ -1,3 +1,8 @@
+"""
+As the solutions seem to be quite unstable, and since dwave doens't give warranty of obtaining the optimal solution, 
+I opted for a "best of N" approach where I compute a certain number of routes using d-wave and take the best from them
+
+"""
 import dwave_networkx as dx
 from dwave_networkx.algorithms import traveling_salesperson_qubo
 from dwave.system.samplers import DWaveSampler
@@ -6,6 +11,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import dimod
+
+token = "your-token-here"
 
 ####################
 # GRAPH GENERATION #
@@ -47,18 +54,23 @@ plt.show()
 annealing_time = 80
 nreads = 1000
 
-dws = DWaveSampler(token="DEV-5c0f1949132356e0df6b12031862ac936ed9dacd")
+dws = DWaveSampler(token=token)
 sampler = EmbeddingComposite(dws)
 
 qubo = traveling_salesperson_qubo(graph) 
 bqm = dimod.BinaryQuadraticModel.from_qubo(qubo)
 
-while (True):
-    response = sampler.sample_qubo(qubo, num_reads=nreads, annealing_time=annealing_time, label="TSP - 2nd method")
+solutions = {} #dic that will contain all the different routes
 
+n_of_valid_routes = 10 #searches for this number of valid routes to chose from
+
+while (n_of_valid_routes > 0): #enters all valid routes in dictionnary
+
+    response = sampler.sample_qubo(qubo, num_reads=nreads, annealing_time=annealing_time, label="TSP - Mean method")
     sample = response.first.sample
     cost = response.first.energy
-    print(response.info)
+    # print(response.info)
+    
     route = [None] * n_of_towns
 
     for (city, time), val in sample.items():
@@ -67,10 +79,14 @@ while (True):
     print(route)
     if (None not in route): 
         if (len(route) == len(set(route))): #checks for duplicates
-            break
+            solutions[cost] = route
+            n_of_valid_routes -= 1
 
-print("First valid route : ")
-print(route)
+
+best_cost = min(solutions.keys())
+
+print("Best route found : " + str(solutions[best_cost]))
+print("Cost associated : " + str(best_cost))
 
 
 
